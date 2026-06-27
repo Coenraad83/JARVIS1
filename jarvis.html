@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>J.A.R.V.I.S</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Inter:wght@300;400;600&display=swap');
+
+  :root {
+    --arc: #00d4ff;
+    --arc2: #0090cc;
+    --gold: #ffd700;
+    --danger: #ff4444;
+    --bg: #020a10;
+    --panel: #030f1a;
+    --border: rgba(0,212,255,0.18);
+    --text: #c8eaf5;
+    --dim: rgba(0,212,255,0.45);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.012) 2px, rgba(0,212,255,0.012) 4px);
+    pointer-events:none; z-index:9999;
+  }
+
+  /* Header */
+  .header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(90deg, rgba(0,212,255,0.06), transparent);
+    position: sticky; top:0; z-index:100;
+    backdrop-filter: blur(12px);
+  }
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: var(--arc);
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px var(--arc);
+  }
+  .logo span { color: var(--gold); }
+  .status-dot {
+    width:8px; height:8px; border-radius:50%;
+    background: #00ff88;
+    box-shadow: 0 0 10px #00ff88;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .header-right { display:flex; align-items:center; gap:10px; font-size:0.7rem; color:var(--dim); }
+  .time-display { font-size:0.75rem; color:var(--arc); }
+
+  /* Nav Tabs */
+  .nav {
+    display:flex; overflow-x:auto; gap:2px;
+    padding: 8px 12px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    scrollbar-width:none;
+  }
+  .nav::-webkit-scrollbar { display:none; }
+  .tab {
+    flex-shrink:0;
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--dim);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 1.5px;
+    cursor:pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    background: rgba(0,212,255,0.12);
+    border-color: var(--arc);
+    color: var(--arc);
+    box-shadow: 0 0 12px rgba(0,212,255,0.2);
+  }
+  .tab:hover:not(.active) { border-color: rgba(0,212,255,0.4); color: var(--arc); }
+
+  /* Pages */
+  .page { display:none; padding:12px; }
+  .page.active { display:block; }
+
+  /* Panel Cards */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--arc), transparent);
+    opacity:0.5;
+  }
+  .card-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 2px;
+    color: var(--arc);
+    margin-bottom: 10px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .card-title::after {
+    content:'';
+    flex:1; height:1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* JARVIS Chat */
+  .chat-container {
+    display:flex; flex-direction:column; height: calc(100vh - 160px);
+  }
+  .chat-messages {
+    flex:1; overflow-y:auto; padding:8px 4px;
+    display:flex; flex-direction:column; gap:10px;
+    scrollbar-width:thin; scrollbar-color: var(--border) transparent;
+  }
+  .msg {
+    max-width: 88%; padding: 10px 14px;
+    border-radius: 6px; font-size: 0.82rem; line-height:1.5;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .msg.jarvis {
+    align-self:flex-start;
+    background: rgba(0,212,255,0.07);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-left: 3px solid var(--arc);
+    color: var(--text);
+  }
+  .msg.user {
+    align-self:flex-end;
+    background: rgba(255,215,0,0.08);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-right: 3px solid var(--gold);
+    color: #fff;
+  }
+  .msg-label {
+    font-size:0.6rem; letter-spacing:1px;
+    margin-bottom:4px; opacity:0.6;
+    font-family:'Orbitron',monospace;
+  }
+  .msg.jarvis .msg-label { color:var(--arc); }
+  .msg.user .msg-label { color:var(--gold); text-align:right; }
+
+  .thinking {
+    display:flex; gap:4px; align-items:center; padding:6px 0;
+  }
+  .thinking span {
+    width:6px; height:6px; border-radius:50%;
+    background: var(--arc); opacity:0.4;
+    animation: blink 1.2s infinite;
+  }
+  .thinking span:nth-child(2){animation-delay:0.2s}
+  .thinking span:nth-child(3){animation-delay:0.4s}
+  @keyframes blink{0%,100%{opacity:0.2}50%{opacity:1}}
+
+  .chat-input-row {
+    display:flex; gap:8px; padding-top:10px;
+    border-top: 1px solid var(--border);
+  }
+  .chat-input {
+    flex:1; background: rgba(0,212,255,0.05);
+    border: 1px solid var(--border); border-radius:4px;
+    padding: 10px 12px; color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem; outline:none; resize:none;
+    transition: border-color 0.2s;
+  }
+  .chat-input:focus { border-color: var(--arc); box-shadow: 0 0 10px rgba(0,212,255,0.15); }
+  .chat-input::placeholder { color: rgba(0,212,255,0.3); }
+  .send-btn {
+    background: linear-gradient(135deg, var(--arc2), var(--arc));
+    border:none; border-radius:4px; padding:10px 16px;
+    color:#000; font-family:'Orbitron',monospace;
+    font-size:0.65rem; font-weight:700; letter-spacing:1px;
+    cursor:pointer; transition: all 0.2s;
+    white-space:nowrap;
+  }
+  .send-btn:hover { box-shadow: 0 0 16px rgba(0,212,255,0.5); transform:translateY(-1px); }
+  .send-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+  /* Quick Commands */
+  .quick-cmds {
+    display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;
+  }
+  .qcmd {
+    padding: 5px 10px; font-size:0.65rem;
+    border: 1px solid var(--border); border-radius:3px;
+    background:transparent; color:var(--dim);
+    cursor:pointer; font-family:'Share Tech Mono',monospace;
+    transition:all 0.2s;
+  }
+  .qcmd:hover { border-color:var(--arc); color:var(--arc); background:rgba(0,212,255,0.08); }
+
+  /* Trading */
+  .price-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 8px 0; border-bottom: 1px solid rgba(0,212,255,0.07);
+  }
+  .price-row:last-child { border-bottom:none; }
+  .symbol { font-family:'Orbitron',monospace; font-size:0.75rem; color:#fff; }
+  .price { font-size:0.85rem; color:var(--arc); }
+  .change.up { color:#00ff88; }
+  .change.down { color:var(--danger); }
+  .mini-chart { display:flex; align-items:flex-end; gap:2px; height:24px; }
+  .bar { width:4px; background:var(--arc); border-radius:1px; opacity:0.6; }
+
+  /* Business Stats */
+  .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stat-box {
+    background: rgba(0,212,255,0.04);
+    border: 1px solid var(--border); border-radius:5px;
+    padding: 10px; text-align:center;
+  }
+  .stat-value { font-family:'Orbitron',monospace; font-size:1.1rem; color:var(--arc); }
+  .stat-label { font-size:0.6rem; color:var(--dim); margin-top:3px; letter-spacing:1px; }
+  .stat-change { font-size:0.65rem; color:#00ff88; margin-top:2px; }
+
+  /* Tasks */
+  .task-item {
+    display:flex; align-items:center; gap:10px;
+    padding: 8px 0; border-bottom:1px solid rgba(0,212,255,0.07);
+  }
+  .task-item:last-child { border-bottom:none; }
+  .task-check {
+    width:16px; height:16px; border:1px solid var(--arc);
+    border-radius:2px; cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.2s;
+  }
+  .task-check.done { background:var(--arc); }
+  .task-check.done::after { content:'✓'; font-size:0.7rem; color:#000; }
+  .task-text { font-size:0.78rem; flex:1; }
+  .task-text.done { text-decoration:line-through; opacity:0.4; }
+  .task-priority { font-size:0.6rem; padding:2px 6px; border-radius:2px; }
+  .task-priority.high { background:rgba(255,68,68,0.2); color:#ff6666; border:1px solid rgba(255,68,68,0.3); }
+  .task-priority.med { background:rgba(255,165,0,0.2); color:orange; border:1px solid rgba(255,165,0,0.3); }
+  .task-priority.low { background:rgba(0,255,136,0.1); color:#00ff88; border:1px solid rgba(0,255,136,0.3); }
+
+  /* Social Hub */
+  .social-card {
+    display:flex; align-items:center; gap:12px;
+    padding: 10px; border:1px solid var(--border);
+    border-radius:5px; margin-bottom:8px;
+    background:rgba(0,212,255,0.03);
+    cursor:pointer; transition:all 0.2s;
+  }
+  .social-card:hover { border-color:var(--arc); background:rgba(0,212,255,0.07); }
+  .social-icon { font-size:1.4rem; width:36px; text-align:center; }
+  .social-info { flex:1; }
+  .social-name { font-family:'Orbitron',monospace; font-size:0.7rem; color:#fff; }
+  .social-status { font-size:0.68rem; color:var(--dim); margin-top:2px; }
+  .social-badge {
+    background:var(--danger); color:#fff; border-radius:50%;
+    width:20px; height:20px; display:flex; align-items:center; justify-content:center;
+    font-size:0.65rem; font-weight:bold;
+  }
+  .coming-soon {
+    display:inline-block; padding:2px 8px; font-size:0.55rem;
+    border:1px solid rgba(255,215,0,0.3); color:var(--gold);
+    border-radius:2px; letter-spacing:1px;
+  }
+
+  /* Alerts */
+  .alert {
+    padding:8px 12px; border-radius:4px; margin-bottom:8px;
+    font-size:0.75rem; border-left:3px solid;
+    animation:fadeIn 0.3s ease;
+  }
+  .alert.info { background:rgba(0,212,255,0.08); border-color:var(--arc); }
+  .alert.success { background:rgba(0,255,136,0.08); border-color:#00ff88; color:#00ff88; }
+  .alert.warning { background:rgba(255,165,0,0.08); border-color:orange; color:orange; }
+
+  /* Input */
+  .jarvis-input {
+    width:100%; background:rgba(0,212,255,0.05);
+    border:1px solid var(--border); border-radius:4px;
+    padding:8px 12px; color:var(--text);
+    font-family:'Share Tech Mono',monospace;
+    font-size:0.8rem; outline:none; margin-bottom:8px;
+  }
+  .jarvis-input:focus { border-color:var(--arc); }
+  .jarvis-btn {
+    padding:7px 16px; font-family:'Orbitron',monospace;
+    font-size:0.6rem; letter-spacing:1px; cursor:pointer;
+    border-radius:3px; transition:all 0.2s;
+    border:1px solid var(--arc); background:transparent; color:var(--arc);
+  }
+  .jarvis-btn:hover { background:rgba(0,212,255,0.15); box-shadow:0 0 10px rgba(0,212,255,0.2); }
+  .jarvis-btn.primary { background:var(--arc); color:#000; font-weight:700; }
+  .jarvis-btn.primary:hover { box-shadow:0 0 16px rgba(0,212,255,0.5); }
+
+  /* Learn section */
+  .learn-item {
+    padding:10px; border:1px solid var(--border); border-radius:5px;
+    margin-bottom:8px; background:rgba(0,212,255,0.03);
+  }
+  .learn-title { font-family:'Orbitron',monospace; font-size:0.65rem; color:var(--arc); margin-bottom:4px; }
+  .learn-desc { font-size:0.72rem; color:var(--dim); }
+  .progress-bar { height:4px; background:rgba(0,212,255,0.1); border-radius:2px; margin-top:8px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,var(--arc2),var(--arc)); border-radius:2px; }
+
+  .divider { height:1px; background:var(--border); margin:12px 0; }
+
+  /* Trade form */
+  .trade-form { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+  /* Scroll */
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">J<span>.</span>A<span>.</span>R<span>.</span>V<span>.</span>I<span>.</span>S</div>
+  <div class="header-right">
+    <div class="time-display" id="clockDisplay">--:--:--</div>
+    <div class="status-dot"></div>
+    <span>ONLINE</span>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="tab active" onclick="switchTab('chat')">🤖 AI BRAIN</button>
+  <button class="tab" onclick="switchTab('trading')">📈 TRADING</button>
+  <button class="tab" onclick="switchTab('business')">💼 BUSINESS</button>
+  <button class="tab" onclick="switchTab('social')">📱 SOCIAL</button>
+  <button class="tab" onclick="switchTab('tasks')">✅ TASKS</button>
+  <button class="tab" onclick="switchTab('threads')">🧵 THREADS</button>
+  <button class="tab" onclick="switchTab('learn')">🧠 LEARN</button>
+</div>
+
+<!-- CHAT PAGE -->
+<div class="page active" id="page-chat">
+  <div class="chat-container">
+    <div class="quick-cmds">
+      <button class="qcmd" onclick="quickCmd('Analyze my business performance today')">📊 Business Report</button>
+      <button class="qcmd" onclick="quickCmd('What trading opportunities should I look at today?')">📈 Trade Ideas</button>
+      <button class="qcmd" onclick="quickCmd('Help me write a professional message for my client')">✉️ Write Message</button>
+      <button class="qcmd" onclick="quickCmd('What tasks should I prioritize today?')">🎯 Prioritize</button>
+      <button class="qcmd" onclick="quickCmd('Give me a motivational pep talk')">⚡ Motivate Me</button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="msg jarvis">
+        <div class="msg-label">J.A.R.V.I.S</div>
+        Good day. I am J.A.R.V.I.S — your Just A Rather Very Intelligent System. I am online and ready to assist with your trading analysis, business operations, communications, and strategic planning. All systems are nominal. How may I serve you today?
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chatInput" placeholder="Command J.A.R.V.I.S..." rows="2" onkeydown="handleKey(event)"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">SEND</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRADING PAGE -->
+<div class="page" id="page-trading">
+  <div class="card">
+    <div class="card-title">MARKET WATCHLIST</div>
+    <div id="marketData">
+      <div style="text-align:center;color:var(--dim);padding:20px;font-size:0.8rem;">Loading market data...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">AI TRADE ANALYSIS</div>
+    <p style="font-size:0.75rem;color:var(--dim);margin-bottom:10px;">Ask JARVIS to analyze any asset for you</p>
+    <input class="jarvis-input" id="tradeSymbol" placeholder="e.g. BTC, AAPL, EUR/USD, GOLD...">
+    <button class="jarvis-btn primary" onclick="analyzeAsset()" style="width:100%;margin-top:4px;">ANALYZE WITH AI</button>
+    <div id="tradeAnalysis" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">TRADE LOG</div>
+    <div id="tradeLog" style="font-size:0.75rem;color:var(--dim);">No trades logged yet. Add entries below.</div>
+    <div class="divider"></div>
+    <div class="trade-form">
+      <input class="jarvis-input" id="logSymbol" placeholder="Symbol">
+      <input class="jarvis-input" id="logPrice" placeholder="Price">
+      <input class="jarvis-input" id="logQty" placeholder="Qty/Amount">
+      <select class="jarvis-input" id="logType" style="cursor:pointer">
+        <option value="BUY">BUY</option>
+        <option value="SELL">SELL</option>
+      </select>
+    </div>
+    <button class="jarvis-btn" onclick="logTrade()" style="width:100%;margin-top:4px;">LOG TRADE</button>
+  </div>
+</div>
+
+<!-- BUSINESS PAGE -->
+<div class="page" id="page-business">
+  <div class="card">
+    <div class="card-title">BUSINESS OVERVIEW</div>
+    <div class="stat-grid">
+      <div class="stat-box">
+        <div class="stat-value" id="statRevenue">R0</div>
+        <div class="stat-label">REVENUE</div>
+        <div class="stat-change" id="statRevChange">+0%</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="statExpenses">R0</div>
+        <div class="stat-label">EXPENSES</div>
+        <div class="stat-change">this month</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="statClients">0</div>
+        <div class="stat-label">CLIENTS</div>
+        <div class="stat-change" id="statClientsNew">+0 new</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="statProfit">R0</div>
+        <div class="stat-label">NET PROFIT</div>
+        <div class="stat-change" id="statProfitChange">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">UPDATE STATS</div>
+    <input class="jarvis-input" id="bizRevenue" placeholder="Revenue (e.g. 50000)">
+    <input class="jarvis-input" id="bizExpenses" placeholder="Expenses (e.g. 12000)">
+    <input class="jarvis-input" id="bizClients" placeholder="Number of clients">
+    <button class="jarvis-btn primary" onclick="updateBizStats()" style="width:100%;">UPDATE DASHBOARD</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">AI BUSINESS ADVISOR</div>
+    <p style="font-size:0.75rem;color:var(--dim);margin-bottom:10px;">Ask JARVIS for business strategy, advice, or to draft communications</p>
+    <input class="jarvis-input" id="bizQuestion" placeholder="e.g. How do I get more clients?">
+    <button class="jarvis-btn primary" onclick="askBizAdvice()" style="width:100%;margin-top:4px;">ASK JARVIS</button>
+    <div id="bizAdvice" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">DRAFT A MESSAGE</div>
+    <select class="jarvis-input" id="msgType" style="cursor:pointer;margin-bottom:6px;">
+      <option value="client proposal">Client Proposal</option>
+      <option value="invoice follow-up">Invoice Follow-up</option>
+      <option value="meeting request">Meeting Request</option>
+      <option value="thank you note">Thank You Note</option>
+      <option value="complaint response">Complaint Response</option>
+      <option value="partnership inquiry">Partnership Inquiry</option>
+    </select>
+    <input class="jarvis-input" id="msgContext" placeholder="Any specific details? (optional)">
+    <button class="jarvis-btn primary" onclick="draftMessage()" style="width:100%;margin-top:4px;">DRAFT MESSAGE</button>
+    <div id="draftResult" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- SOCIAL PAGE -->
+<div class="page" id="page-social">
+  <div class="alert info">
+    ⚡ JARVIS can draft all your social content and messages. Direct platform control requires the official business APIs — your developer can connect these.
+  </div>
+
+  <div class="card">
+    <div class="card-title">PLATFORMS</div>
+    <div class="social-card">
+      <div class="social-icon">💬</div>
+      <div class="social-info">
+        <div class="social-name">WHATSAPP BUSINESS</div>
+        <div class="social-status">JARVIS drafts your replies & broadcasts</div>
+      </div>
+      <span class="coming-soon">API READY</span>
+    </div>
+    <div class="social-card">
+      <div class="social-icon">📘</div>
+      <div class="social-info">
+        <div class="social-name">FACEBOOK</div>
+        <div class="social-status">Post content, respond to comments</div>
+      </div>
+      <span class="coming-soon">API READY</span>
+    </div>
+    <div class="social-card">
+      <div class="social-icon">📸</div>
+      <div class="social-info">
+        <div class="social-name">INSTAGRAM</div>
+        <div class="social-status">Caption writing, DM responses</div>
+      </div>
+      <span class="coming-soon">API READY</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">AI CONTENT GENERATOR</div>
+    <select class="jarvis-input" id="socialPlatform" style="cursor:pointer;margin-bottom:6px;">
+      <option>WhatsApp Message</option>
+      <option>Facebook Post</option>
+      <option>Instagram Caption</option>
+      <option>Instagram Story</option>
+      <option>Business Broadcast</option>
+    </select>
+    <input class="jarvis-input" id="socialTopic" placeholder="What's the topic or product?">
+    <select class="jarvis-input" id="socialTone" style="cursor:pointer;margin-bottom:6px;">
+      <option>Professional</option>
+      <option>Casual & Friendly</option>
+      <option>Exciting & Bold</option>
+      <option>Informative</option>
+      <option>Urgent / Limited Offer</option>
+    </select>
+    <button class="jarvis-btn primary" onclick="generateSocialContent()" style="width:100%;margin-top:4px;">GENERATE CONTENT</button>
+    <div id="socialResult" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- TASKS PAGE -->
+<div class="page" id="page-tasks">
+  <div class="card">
+    <div class="card-title">COMMAND QUEUE</div>
+    <div id="taskList"></div>
+    <div class="divider"></div>
+    <input class="jarvis-input" id="newTask" placeholder="Add new task...">
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <select class="jarvis-input" id="taskPri" style="cursor:pointer;">
+        <option value="high">HIGH PRIORITY</option>
+        <option value="med">MEDIUM</option>
+        <option value="low">LOW</option>
+      </select>
+      <button class="jarvis-btn primary" onclick="addTask()">ADD</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">AI TASK PLANNER</div>
+    <p style="font-size:0.75rem;color:var(--dim);margin-bottom:8px;">Tell JARVIS your goal and it will build your task list</p>
+    <input class="jarvis-input" id="taskGoal" placeholder="e.g. Launch my new product next week">
+    <button class="jarvis-btn primary" onclick="generateTasks()" style="width:100%;margin-top:4px;">GENERATE TASK PLAN</button>
+    <div id="taskPlan" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- THREADS PAGE -->
+<div class="page" id="page-threads">
+
+  <div class="card">
+    <div class="card-title">🧵 THREADS ENGINE</div>
+    <div style="font-size:0.75rem;color:var(--dim);margin-bottom:10px;line-height:1.6;">
+      JARVIS writes complete Threads for you — one tap to copy and post. The more you teach JARVIS your voice, the more it sounds like YOU.
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <div style="padding:4px 10px;border:1px solid rgba(0,255,136,0.3);border-radius:3px;font-size:0.6rem;color:#00ff88;">✅ AI WRITING: ACTIVE</div>
+      <div style="padding:4px 10px;border:1px solid rgba(255,215,0,0.3);border-radius:3px;font-size:0.6rem;color:var(--gold);">🔧 AUTO-POST: NEEDS API</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">VOICE & STYLE SETUP</div>
+    <p style="font-size:0.73rem;color:var(--dim);margin-bottom:8px;">Tell JARVIS how you speak so threads sound like YOU, not a robot</p>
+    <textarea class="jarvis-input" id="threadsVoice" placeholder="e.g. I'm direct and confident. I talk about business, money, trading and motivation. I use short punchy sentences. I swear sometimes. My audience is young entrepreneurs in SA..." rows="3"></textarea>
+    <input class="jarvis-input" id="threadsNiche" placeholder="Your niche/topic (e.g. Trading, Business, Fashion, Fitness)" style="margin-top:6px;">
+    <button class="jarvis-btn primary" onclick="saveThreadsVoice()" style="width:100%;margin-top:6px;">SAVE MY VOICE</button>
+    <div id="voiceSaved" style="margin-top:6px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">GENERATE A THREAD</div>
+    <input class="jarvis-input" id="threadTopic" placeholder="Thread topic (e.g. 5 reasons to start trading, My morning routine...)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+      <select class="jarvis-input" id="threadStyle" style="cursor:pointer;">
+        <option value="story">Story / Personal</option>
+        <option value="tips">Tips List</option>
+        <option value="opinion">Hot Take / Opinion</option>
+        <option value="educational">Educational</option>
+        <option value="motivation">Motivational</option>
+        <option value="business">Business Insight</option>
+        <option value="trading">Trading Analysis</option>
+      </select>
+      <select class="jarvis-input" id="threadLength" style="cursor:pointer;">
+        <option value="5">5 posts</option>
+        <option value="7" selected>7 posts</option>
+        <option value="10">10 posts</option>
+        <option value="12">12 posts</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+      <select class="jarvis-input" id="threadTone" style="cursor:pointer;">
+        <option value="bold">Bold & Direct</option>
+        <option value="casual">Casual & Real</option>
+        <option value="professional">Professional</option>
+        <option value="hype">Hype & Energetic</option>
+        <option value="wise">Wise & Thoughtful</option>
+      </select>
+      <select class="jarvis-input" id="threadHook" style="cursor:pointer;">
+        <option value="question">Start with Question</option>
+        <option value="statement">Bold Statement</option>
+        <option value="number">Number Hook</option>
+        <option value="story">Story Hook</option>
+      </select>
+    </div>
+    <button class="jarvis-btn primary" onclick="generateThread()" style="width:100%;margin-top:8px;padding:12px;">⚡ GENERATE THREAD NOW</button>
+  </div>
+
+  <div id="threadOutput" style="display:none;">
+    <div class="card">
+      <div class="card-title">YOUR THREAD — READY TO POST</div>
+      <div id="threadPosts"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+        <button class="jarvis-btn primary" onclick="copyFullThread()">📋 COPY ALL</button>
+        <button class="jarvis-btn" onclick="regenerateThread()">🔄 REGENERATE</button>
+      </div>
+      <button class="jarvis-btn" onclick="saveThreadDraft()" style="width:100%;margin-top:6px;">💾 SAVE TO DRAFTS</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">DAILY THREAD PLANNER</div>
+    <p style="font-size:0.73rem;color:var(--dim);margin-bottom:8px;">Tell JARVIS your week and it builds a 7-day posting schedule</p>
+    <textarea class="jarvis-input" id="weekContext" placeholder="e.g. This week I'm launching a new product, I just made a big trade, I want to talk about mindset and money..." rows="3"></textarea>
+    <button class="jarvis-btn primary" onclick="generateWeekPlan()" style="width:100%;margin-top:6px;">BUILD 7-DAY PLAN</button>
+    <div id="weekPlan" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">SAVED DRAFTS</div>
+    <div id="threadDrafts">
+      <div style="color:var(--dim);font-size:0.75rem;padding:8px 0;">No drafts saved yet. Generate a thread and save it.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">AUTO-POST SETUP GUIDE</div>
+    <div style="font-size:0.72rem;line-height:1.9;color:var(--text);">
+      To make JARVIS post automatically to Threads:<br><br>
+      <span style="color:var(--arc);">STEP 1</span> — Go to <span style="color:var(--gold);">developers.facebook.com</span><br>
+      <span style="color:var(--arc);">STEP 2</span> — Create an app → Select "Threads" API<br>
+      <span style="color:var(--arc);">STEP 3</span> — Get your <span style="color:var(--gold);">Access Token</span><br>
+      <span style="color:var(--arc);">STEP 4</span> — Paste it below (saves locally on your device)<br>
+      <span style="color:var(--arc);">STEP 5</span> — JARVIS can then post directly for you<br><br>
+      <span style="color:var(--dim);font-size:0.65rem;">Your token is stored only on your phone. Never shared.</span>
+    </div>
+    <input class="jarvis-input" id="threadsToken" placeholder="Paste your Threads Access Token here" style="margin-top:10px;" type="password">
+    <button class="jarvis-btn primary" onclick="saveThreadsToken()" style="width:100%;margin-top:6px;">SAVE TOKEN</button>
+    <div id="tokenStatus" style="margin-top:6px;"></div>
+  </div>
+
+</div>
+
+<!-- LEARN PAGE -->
+<div class="page" id="page-learn">
+  <div class="card">
+    <div class="card-title">JARVIS LEARNING MODULES</div>
+    <p style="font-size:0.75rem;color:var(--dim);margin-bottom:10px;">Teach JARVIS about your business so it gives better advice</p>
+
+    <div class="learn-item">
+      <div class="learn-title">📋 YOUR BUSINESS PROFILE</div>
+      <div class="learn-desc">Tell JARVIS what your business does</div>
+      <textarea class="jarvis-input" id="bizProfile" placeholder="e.g. I run a clothing store in Johannesburg. I sell streetwear to 18-35 year olds. My prices range from R200 to R2000..." rows="3" style="margin-top:8px;"></textarea>
+      <button class="jarvis-btn primary" style="margin-top:6px;width:100%;" onclick="saveProfile()">SAVE TO JARVIS</button>
+      <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" id="profileProgress" style="width:0%"></div></div>
+    </div>
+
+    <div class="learn-item">
+      <div class="learn-title">📈 YOUR TRADING STYLE</div>
+      <div class="learn-desc">How does JARVIS understand your risk appetite?</div>
+      <select class="jarvis-input" id="riskLevel" style="cursor:pointer;margin-top:8px;">
+        <option>Conservative — Protect capital first</option>
+        <option>Moderate — Balanced risk/reward</option>
+        <option>Aggressive — High risk, high reward</option>
+        <option>Day Trader — Short term moves</option>
+        <option>Long Term — Hold for months/years</option>
+      </select>
+      <input class="jarvis-input" id="tradeMarkets" placeholder="Which markets? (e.g. Crypto, Forex, JSE stocks)" style="margin-top:6px;">
+      <button class="jarvis-btn primary" style="margin-top:6px;width:100%;" onclick="saveTradingProfile()">SAVE TRADING PROFILE</button>
+    </div>
+
+    <div class="learn-item">
+      <div class="learn-title">🎯 JARVIS CAPABILITIES</div>
+      <div class="learn-desc">What JARVIS can learn and do for you</div>
+      <div style="margin-top:8px;font-size:0.72rem;color:var(--text);line-height:1.8;">
+        ✅ Analyze any market or asset<br>
+        ✅ Draft professional messages & emails<br>
+        ✅ Create social media content<br>
+        ✅ Build business strategy & plans<br>
+        ✅ Generate task lists from your goals<br>
+        ✅ Advise on pricing & client management<br>
+        ✅ Remember your business context<br>
+        🔧 WhatsApp auto-reply (needs API)<br>
+        🔧 Facebook/Instagram posting (needs API)<br>
+        🔧 Live trading execution (needs broker API)<br>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">TEACH JARVIS SOMETHING NEW</div>
+    <p style="font-size:0.75rem;color:var(--dim);margin-bottom:8px;">The more you tell JARVIS, the smarter it gets for YOUR needs</p>
+    <textarea class="jarvis-input" id="teachInput" placeholder="e.g. My biggest client is Mr Dlamini who buys every month. My supplier is in China and orders take 3 weeks..." rows="4"></textarea>
+    <button class="jarvis-btn primary" onclick="teachJarvis()" style="width:100%;margin-top:6px;">TEACH JARVIS</button>
+    <div id="learnResult" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────
+let jarvisMemory = {
+  bizProfile: localStorage.getItem('jarvis_biz') || '',
+  tradingStyle: localStorage.getItem('jarvis_trade') || '',
+  knowledge: JSON.parse(localStorage.getItem('jarvis_know') || '[]'),
+  tasks: JSON.parse(localStorage.getItem('jarvis_tasks') || '[]'),
+  trades: JSON.parse(localStorage.getItem('jarvis_trades') || '[]'),
+  bizStats: JSON.parse(localStorage.getItem('jarvis_stats') || '{"revenue":0,"expenses":0,"clients":0}')
+};
+
+// ── Clock ──────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clockDisplay').textContent =
+    now.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ── Navigation ──────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+tab).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if(tab==='trading') loadMarketData();
+  if(tab==='tasks') renderTasks();
+  if(tab==='business') loadBizStats();
+  if(tab==='threads') loadThreadsPage();
+  if(tab==='learn') loadLearnPage();
+}
+
+// ── Claude AI API ──────────────────────────
+async function askJarvis(prompt, systemExtra='') {
+  const bizCtx = jarvisMemory.bizProfile ? `\nUser's business: ${jarvisMemory.bizProfile}` : '';
+  const tradeCtx = jarvisMemory.tradingStyle ? `\nTrading style: ${jarvisMemory.tradingStyle}` : '';
+  const knowCtx = jarvisMemory.knowledge.length ? `\nExtra knowledge: ${jarvisMemory.knowledge.join('; ')}` : '';
+
+  const system = `You are J.A.R.V.I.S — a highly capable AI assistant built for a business owner and trader. 
+You speak with intelligence, precision, and a slight professional wit — like a top-tier personal AI.
+Always be practical, specific, and action-oriented. Never waffle.${bizCtx}${tradeCtx}${knowCtx}
+${systemExtra}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      system,
+      messages: [{role:'user', content: prompt}]
+    })
+  });
+  const data = await res.json();
+  return data.content?.[0]?.text || 'Systems error. Please retry.';
+}
+
+// ── Chat ───────────────────────────────────
+let chatHistory = [];
+
+function handleKey(e) {
+  if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function quickCmd(cmd) {
+  document.getElementById('chatInput').value = cmd;
+  sendMessage();
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if(!text) return;
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  addChatMsg('user', text);
+  input.value = '';
+
+  const thinking = addThinking();
+
+  chatHistory.push({role:'user', content:text});
+
+  try {
+    // Build conversation for context
+    const msgs = chatHistory.slice(-8); // last 8 turns
+    const bizCtx = jarvisMemory.bizProfile ? `\nUser's business: ${jarvisMemory.bizProfile}` : '';
+    const tradeCtx = jarvisMemory.tradingStyle ? `\nTrading style: ${jarvisMemory.tradingStyle}` : '';
+    const knowCtx = jarvisMemory.knowledge.length ? `\nExtra facts: ${jarvisMemory.knowledge.slice(-5).join('; ')}` : '';
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: `You are J.A.R.V.I.S — Just A Rather Very Intelligent System. A premium AI assistant for a business owner and active trader. You are confident, intelligent, practical, and concise. You give real actionable advice. You remember context within our conversation.${bizCtx}${tradeCtx}${knowCtx}`,
+        messages: msgs
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'Apologies, systems offline momentarily.';
+    chatHistory.push({role:'assistant', content:reply});
+    removeThinking(thinking);
+    addChatMsg('jarvis', reply);
+  } catch(e) {
+    removeThinking(thinking);
+    addChatMsg('jarvis', 'Connection disrupted. Please check your network and retry.');
+  }
+  btn.disabled = false;
+}
+
+function addChatMsg(role, text) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `<div class="msg-label">${role==='jarvis'?'J.A.R.V.I.S':'YOU'}</div>${escHtml(text)}`;
+  const msgs = document.getElementById('chatMessages');
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function addThinking() {
+  const div = document.createElement('div');
+  div.className = 'msg jarvis';
+  div.innerHTML = `<div class="msg-label">J.A.R.V.I.S</div><div class="thinking"><span></span><span></span><span></span></div>`;
+  const msgs = document.getElementById('chatMessages');
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+function removeThinking(el) { el?.remove(); }
+
+// ── Trading ────────────────────────────────
+const mockPrices = {
+  'BTC': {price:'$105,240', change:'+2.4%', up:true},
+  'ETH': {price:'$3,890', change:'+1.8%', up:true},
+  'SOL': {price:'$178', change:'-0.9%', up:false},
+  'GOLD': {price:'$3,124/oz', change:'+0.5%', up:true},
+  'USD/ZAR': {price:'R18.42', change:'-0.3%', up:false},
+  'JSE TOP40': {price:'82,450', change:'+0.7%', up:true},
+};
+
+function loadMarketData() {
+  const el = document.getElementById('marketData');
+  el.innerHTML = '';
+  Object.entries(mockPrices).forEach(([sym,d]) => {
+    const heights = Array.from({length:8},()=>Math.floor(Math.random()*18)+4);
+    el.innerHTML += `
+      <div class="price-row">
+        <div>
+          <div class="symbol">${sym}</div>
+        </div>
+        <div class="mini-chart">${heights.map(h=>`<div class="bar" style="height:${h}px;opacity:${d.up?0.7:0.4};background:${d.up?'#00ff88':'#ff4444'}"></div>`).join('')}</div>
+        <div style="text-align:right">
+          <div class="price">${d.price}</div>
+          <div class="change ${d.up?'up':'down'}">${d.change}</div>
+        </div>
+      </div>`;
+  });
+  el.innerHTML += `<div style="font-size:0.6rem;color:var(--dim);margin-top:8px;text-align:center;">Prices are illustrative. Connect broker API for live data.</div>`;
+}
+
+async function analyzeAsset() {
+  const sym = document.getElementById('tradeSymbol').value.trim();
+  if(!sym) return alert('Enter a symbol first');
+  const el = document.getElementById('tradeAnalysis');
+  el.innerHTML = `<div class="alert info"><div class="thinking"><span></span><span></span><span></span></div>Analyzing ${sym.toUpperCase()}...</div>`;
+  const style = jarvisMemory.tradingStyle || 'moderate risk tolerance';
+  const reply = await askJarvis(`Analyze ${sym.toUpperCase()} as a trading opportunity. Consider: trend direction, key levels, sentiment, and risk. My style: ${style}. Give a structured brief analysis with a clear recommendation (BUY/SELL/HOLD/WAIT) and why.`);
+  el.innerHTML = `<div style="background:rgba(0,212,255,0.05);border:1px solid var(--border);border-left:3px solid var(--arc);border-radius:4px;padding:12px;font-size:0.78rem;line-height:1.6;">${escHtml(reply)}</div>`;
+}
+
+function logTrade() {
+  const sym = document.getElementById('logSymbol').value.trim();
+  const price = document.getElementById('logPrice').value.trim();
+  const qty = document.getElementById('logQty').value.trim();
+  const type = document.getElementById('logType').value;
+  if(!sym||!price) return;
+  const trade = {sym:sym.toUpperCase(), price, qty, type, time: new Date().toLocaleString('en-ZA')};
+  jarvisMemory.trades.unshift(trade);
+  localStorage.setItem('jarvis_trades', JSON.stringify(jarvisMemory.trades.slice(0,50)));
+  const el = document.getElementById('tradeLog');
+  el.innerHTML = jarvisMemory.trades.slice(0,8).map(t=>
+    `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.73rem;">
+      <span style="color:${t.type==='BUY'?'#00ff88':'#ff4444'}">${t.type}</span>
+      <span style="color:#fff">${t.sym}</span>
+      <span>${t.price}</span>
+      <span style="color:var(--dim)">${t.qty||'-'}</span>
+    </div>`).join('');
+  document.getElementById('logSymbol').value='';
+  document.getElementById('logPrice').value='';
+  document.getElementById('logQty').value='';
+}
+
+// ── Business ───────────────────────────────
+function loadBizStats() {
+  const s = jarvisMemory.bizStats;
+  document.getElementById('statRevenue').textContent = formatR(s.revenue);
+  document.getElementById('statExpenses').textContent = formatR(s.expenses);
+  document.getElementById('statClients').textContent = s.clients||'0';
+  document.getElementById('statProfit').textContent = formatR((s.revenue||0)-(s.expenses||0));
+  const margin = s.revenue ? Math.round(((s.revenue-s.expenses)/s.revenue)*100) : 0;
+  document.getElementById('statProfitChange').textContent = margin+'% margin';
+}
+
+function formatR(n) {
+  n = parseFloat(n)||0;
+  if(n>=1000000) return 'R'+(n/1000000).toFixed(1)+'M';
+  if(n>=1000) return 'R'+(n/1000).toFixed(1)+'K';
+  return 'R'+n;
+}
+
+function updateBizStats() {
+  jarvisMemory.bizStats = {
+    revenue: parseFloat(document.getElementById('bizRevenue').value)||0,
+    expenses: parseFloat(document.getElementById('bizExpenses').value)||0,
+    clients: parseInt(document.getElementById('bizClients').value)||0,
+  };
+  localStorage.setItem('jarvis_stats', JSON.stringify(jarvisMemory.bizStats));
+  loadBizStats();
+  document.getElementById('bizRevenue').value='';
+  document.getElementById('bizExpenses').value='';
+  document.getElementById('bizClients').value='';
+}
+
+async function askBizAdvice() {
+  const q = document.getElementById('bizQuestion').value.trim();
+  if(!q) return;
+  const el = document.getElementById('bizAdvice');
+  el.innerHTML = `<div class="alert info">Consulting J.A.R.V.I.S...</div>`;
+  const reply = await askJarvis(`Business question: ${q}. Give practical, actionable advice. Be specific and direct.`);
+  el.innerHTML = `<div style="background:rgba(0,212,255,0.05);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:4px;padding:12px;font-size:0.78rem;line-height:1.6;">${escHtml(reply)}</div>`;
+}
+
+async function draftMessage() {
+  const type = document.getElementById('msgType').value;
+  const ctx = document.getElementById('msgContext').value;
+  const el = document.getElementById('draftResult');
+  el.innerHTML = `<div class="alert info">Drafting message...</div>`;
+  const biz = jarvisMemory.bizProfile ? `My business: ${jarvisMemory.bizProfile}` : '';
+  const reply = await askJarvis(`Draft a professional ${type} message. ${ctx?'Context: '+ctx:''} ${biz}. Make it natural, professional, and effective. Just provide the message text, ready to send.`);
+  el.innerHTML = `
+    <div style="background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.2);border-radius:4px;padding:12px;font-size:0.78rem;line-height:1.7;white-space:pre-wrap;">${escHtml(reply)}</div>
+    <button class="jarvis-btn" style="margin-top:8px;width:100%;" onclick="copyText('draftResult')">📋 COPY MESSAGE</button>`;
+}
+
+// ── Social ─────────────────────────────────
+async function generateSocialContent() {
+  const platform = document.getElementById('socialPlatform').value;
+  const topic = document.getElementById('socialTopic').value.trim();
+  const tone = document.getElementById('socialTone').value;
+  if(!topic) return alert('Enter a topic first');
+  const el = document.getElementById('socialResult');
+  el.innerHTML = `<div class="alert info">Generating ${platform} content...</div>`;
+  const biz = jarvisMemory.bizProfile ? `Business context: ${jarvisMemory.bizProfile}` : '';
+  const reply = await askJarvis(`Write a ${platform} post about: ${topic}. Tone: ${tone}. ${biz} Include relevant emojis, hashtags if appropriate, and a call to action. Make it engaging and ready to post.`);
+  el.innerHTML = `
+    <div style="background:rgba(0,212,255,0.05);border:1px solid var(--border);border-radius:4px;padding:12px;font-size:0.78rem;line-height:1.7;white-space:pre-wrap;">${escHtml(reply)}</div>
+    <button class="jarvis-btn" style="margin-top:8px;width:100%;" onclick="copyText('socialResult')">📋 COPY CONTENT</button>`;
+}
+
+// ── Tasks ──────────────────────────────────
+function renderTasks() {
+  const el = document.getElementById('taskList');
+  if(!jarvisMemory.tasks.length) { el.innerHTML='<div style="color:var(--dim);font-size:0.78rem;padding:8px 0;">No tasks yet. Add your first command.</div>'; return; }
+  el.innerHTML = jarvisMemory.tasks.map((t,i)=>`
+    <div class="task-item">
+      <div class="task-check ${t.done?'done':''}" onclick="toggleTask(${i})"></div>
+      <div class="task-text ${t.done?'done':''}">${escHtml(t.text)}</div>
+      <span class="task-priority ${t.priority}">${t.priority.toUpperCase()}</span>
+      <div style="cursor:pointer;color:var(--dim);font-size:0.7rem;margin-left:4px;" onclick="deleteTask(${i})">✕</div>
+    </div>`).join('');
+}
+
+function addTask() {
+  const text = document.getElementById('newTask').value.trim();
+  const priority = document.getElementById('taskPri').value;
+  if(!text) return;
+  jarvisMemory.tasks.unshift({text, priority, done:false});
+  saveTasks(); renderTasks();
+  document.getElementById('newTask').value='';
+}
+
+function toggleTask(i) { jarvisMemory.tasks[i].done = !jarvisMemory.tasks[i].done; saveTasks(); renderTasks(); }
+function deleteTask(i) { jarvisMemory.tasks.splice(i,1); saveTasks(); renderTasks(); }
+function saveTasks() { localStorage.setItem('jarvis_tasks', JSON.stringify(jarvisMemory.tasks)); }
+
+async function generateTasks() {
+  const goal = document.getElementById('taskGoal').value.trim();
+  if(!goal) return;
+  const el = document.getElementById('taskPlan');
+  el.innerHTML = `<div class="alert info">Planning your mission...</div>`;
+  const reply = await askJarvis(`Create a detailed task plan to achieve this goal: "${goal}". List 6-10 specific, actionable tasks in order of priority. Format as a numbered list. Be specific and practical.`);
+  el.innerHTML = `<div style="background:rgba(0,212,255,0.05);border:1px solid var(--border);border-left:3px solid var(--arc);border-radius:4px;padding:12px;font-size:0.78rem;line-height:1.7;">${escHtml(reply)}</div>`;
+}
+
+// ── Learn ──────────────────────────────────
+function loadLearnPage() {
+  if(jarvisMemory.bizProfile) {
+    document.getElementById('bizProfile').value = jarvisMemory.bizProfile;
+    document.getElementById('profileProgress').style.width = '80%';
+  }
+}
+
+function saveProfile() {
+  const val = document.getElementById('bizProfile').value.trim();
+  if(!val) return;
+  jarvisMemory.bizProfile = val;
+  localStorage.setItem('jarvis_biz', val);
+  document.getElementById('profileProgress').style.width = '100%';
+  showLearnResult('✅ Business profile saved. JARVIS now knows your business.');
+}
+
+function saveTradingProfile() {
+  const risk = document.getElementById('riskLevel').value;
+  const markets = document.getElementById('tradeMarkets').value;
+  jarvisMemory.tradingStyle = `${risk}. Markets: ${markets}`;
+  localStorage.setItem('jarvis_trade', jarvisMemory.tradingStyle);
+  showLearnResult('✅ Trading profile saved. JARVIS will tailor all market analysis to your style.');
+}
+
+async function teachJarvis() {
+  const info = document.getElementById('teachInput').value.trim();
+  if(!info) return;
+  jarvisMemory.knowledge.push(info);
+  if(jarvisMemory.knowledge.length > 20) jarvisMemory.knowledge.shift();
+  localStorage.setItem('jarvis_know', JSON.stringify(jarvisMemory.knowledge));
+  document.getElementById('teachInput').value='';
+  const confirm = await askJarvis(`A user just taught you this new information about their business: "${info}". Acknowledge this in 1-2 sentences, confirm you understand it, and mention one way you'll use this knowledge to help them better.`);
+  showLearnResult(confirm);
+}
+
+function showLearnResult(msg) {
+  const el = document.getElementById('learnResult');
+  el.innerHTML = `<div class="alert success">${escHtml(msg)}</div>`;
+}
+
+// ── Helpers ────────────────────────────────
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+function copyText(containerId) {
+  const el = document.getElementById(containerId);
+  const text = el.querySelector('div')?.innerText || '';
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn = el.querySelector('button');
+    if(btn) { const orig=btn.textContent; btn.textContent='✅ COPIED!'; setTimeout(()=>btn.textContent=orig,2000); }
+  });
+}
+
+// ── Threads Engine ─────────────────────────
+let currentThread = [];
+let threadDrafts = JSON.parse(localStorage.getItem('jarvis_thread_drafts') || '[]');
+
+function saveThreadsVoice() {
+  const voice = document.getElementById('threadsVoice').value.trim();
+  const niche = document.getElementById('threadsNiche').value.trim();
+  if(!voice) return;
+  localStorage.setItem('jarvis_threads_voice', voice);
+  localStorage.setItem('jarvis_threads_niche', niche);
+  document.getElementById('voiceSaved').innerHTML = `<div class="alert success">✅ Voice saved. JARVIS will now write threads that sound like you.</div>`;
+}
+
+function loadThreadsPage() {
+  const voice = localStorage.getItem('jarvis_threads_voice') || '';
+  const niche = localStorage.getItem('jarvis_threads_niche') || '';
+  if(voice) document.getElementById('threadsVoice').value = voice;
+  if(niche) document.getElementById('threadsNiche').value = niche;
+  renderDrafts();
+}
+
+async function generateThread() {
+  const topic = document.getElementById('threadTopic').value.trim();
+  if(!topic) { alert('Enter a thread topic first'); return; }
+
+  const style = document.getElementById('threadStyle').value;
+  const length = document.getElementById('threadLength').value;
+  const tone = document.getElementById('threadTone').value;
+  const hook = document.getElementById('threadHook').value;
+  const voice = localStorage.getItem('jarvis_threads_voice') || '';
+  const niche = localStorage.getItem('jarvis_threads_niche') || '';
+  const biz = jarvisMemory.bizProfile || '';
+
+  const output = document.getElementById('threadOutput');
+  const postsEl = document.getElementById('threadPosts');
+  output.style.display = 'none';
+  postsEl.innerHTML = `<div class="alert info"><div class="thinking" style="display:inline-flex;gap:4px;margin-right:8px;"><span></span><span></span><span></span></div>JARVIS is writing your thread...</div>`;
+  output.style.display = 'block';
+  output.scrollIntoView({behavior:'smooth', block:'start'});
+
+  const prompt = `Write a ${length}-post Threads thread about: "${topic}"
+
+Style: ${style}
+Tone: ${tone}  
+Hook type: ${hook}
+${niche ? 'Niche/topic area: '+niche : ''}
+${voice ? 'Write in this person\'s voice: '+voice : ''}
+${biz ? 'Their business context: '+biz : ''}
+
+RULES:
+- Each post should be separated by "---POST---"
+- Post 1 is the HOOK — must stop the scroll immediately
+- Each post max 500 characters (Threads limit)
+- Write naturally, not like a corporate robot
+- Include emojis where they fit naturally
+- Last post should have a strong call to action (follow, share, comment)
+- Number each post like 1/ 2/ 3/ etc
+- Make it feel authentic, like a real person wrote it
+- DO NOT add any intro text, just write the thread posts
+
+Return ONLY the posts separated by ---POST---`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: 'You are an expert viral social media writer specializing in Threads. You write authentic, engaging threads that get shared. You adapt to any voice and style perfectly.',
+        messages: [{role:'user', content: prompt}]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+    const posts = text.split('---POST---').map(p=>p.trim()).filter(p=>p.length>0);
+    currentThread = posts;
+    renderThreadPosts(posts);
+  } catch(e) {
+    postsEl.innerHTML = `<div class="alert warning">⚠️ Error generating thread. Check connection and retry.</div>`;
+  }
+}
+
+function renderThreadPosts(posts) {
+  const el = document.getElementById('threadPosts');
+  el.innerHTML = posts.map((post, i) => `
+    <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:10px;position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-family:'Orbitron',monospace;font-size:0.58rem;color:var(--arc);letter-spacing:1px;">POST ${i+1} OF ${posts.length}</span>
+        <div style="display:flex;gap:6px;">
+          <span style="font-size:0.6rem;color:var(--dim);">${post.length}/500</span>
+          <button onclick="copyPost(${i})" style="background:none;border:1px solid var(--border);color:var(--dim);padding:2px 8px;border-radius:3px;font-size:0.6rem;cursor:pointer;">COPY</button>
+        </div>
+      </div>
+      <div style="font-size:0.8rem;line-height:1.65;color:var(--text);white-space:pre-wrap;" id="post-${i}">${escHtml(post)}</div>
+      <div style="margin-top:8px;">
+        <textarea style="width:100%;background:transparent;border:none;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:0.78rem;resize:none;outline:none;line-height:1.6;" rows="1" 
+          onfocus="this.rows=4" onblur="this.rows=1;updatePost(${i},this.value)" 
+          placeholder="✏️ Edit this post..."></textarea>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updatePost(index, value) {
+  if(value.trim()) currentThread[index] = value.trim();
+}
+
+function copyPost(index) {
+  navigator.clipboard.writeText(currentThread[index]).then(()=>{
+    // brief feedback
+  });
+}
+
+function copyFullThread() {
+  const full = currentThread.join('\n\n---\n\n');
+  navigator.clipboard.writeText(full).then(()=>{
+    const btn = event.currentTarget;
+    const orig = btn.textContent;
+    btn.textContent = '✅ ALL COPIED!';
+    setTimeout(()=>btn.textContent=orig, 2000);
+  });
+}
+
+function regenerateThread() {
+  generateThread();
+}
+
+function saveThreadDraft() {
+  if(!currentThread.length) return;
+  const topic = document.getElementById('threadTopic').value.trim() || 'Untitled Thread';
+  const draft = {
+    id: Date.now(),
+    topic,
+    posts: [...currentThread],
+    date: new Date().toLocaleDateString('en-ZA')
+  };
+  threadDrafts.unshift(draft);
+  if(threadDrafts.length > 10) threadDrafts.pop();
+  localStorage.setItem('jarvis_thread_drafts', JSON.stringify(threadDrafts));
+  renderDrafts();
+  const btn = event.currentTarget;
+  const orig = btn.textContent;
+  btn.textContent = '✅ SAVED TO DRAFTS';
+  setTimeout(()=>btn.textContent=orig, 2000);
+}
+
+function renderDrafts() {
+  const el = document.getElementById('threadDrafts');
+  if(!threadDrafts.length) {
+    el.innerHTML = `<div style="color:var(--dim);font-size:0.75rem;padding:8px 0;">No drafts saved yet. Generate a thread and save it.</div>`;
+    return;
+  }
+  el.innerHTML = threadDrafts.map((d,i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:0.75rem;color:#fff;">${escHtml(d.topic)}</div>
+        <div style="font-size:0.62rem;color:var(--dim);">${d.posts.length} posts · ${d.date}</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="loadDraft(${i})" style="background:none;border:1px solid var(--arc);color:var(--arc);padding:4px 10px;border-radius:3px;font-size:0.6rem;cursor:pointer;font-family:'Orbitron',monospace;">LOAD</button>
+        <button onclick="deleteDraft(${i})" style="background:none;border:1px solid var(--border);color:var(--dim);padding:4px 8px;border-radius:3px;font-size:0.6rem;cursor:pointer;">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function loadDraft(i) {
+  currentThread = [...threadDrafts[i].posts];
+  document.getElementById('threadTopic').value = threadDrafts[i].topic;
+  renderThreadPosts(currentThread);
+  document.getElementById('threadOutput').style.display = 'block';
+  document.getElementById('threadOutput').scrollIntoView({behavior:'smooth'});
+}
+
+function deleteDraft(i) {
+  threadDrafts.splice(i, 1);
+  localStorage.setItem('jarvis_thread_drafts', JSON.stringify(threadDrafts));
+  renderDrafts();
+}
+
+async function generateWeekPlan() {
+  const ctx = document.getElementById('weekContext').value.trim();
+  const niche = localStorage.getItem('jarvis_threads_niche') || '';
+  const biz = jarvisMemory.bizProfile || '';
+  const el = document.getElementById('weekPlan');
+  el.innerHTML = `<div class="alert info">Planning your week...</div>`;
+
+  const reply = await askJarvis(`Create a 7-day Threads posting schedule for this week. 
+Context: ${ctx || 'general business and life content'}
+${niche ? 'Niche: '+niche : ''}
+${biz ? 'Business: '+biz : ''}
+
+For each day provide:
+- Day name
+- Thread topic
+- Style (story/tips/opinion/motivation etc)
+- Best time to post (in SAST)
+- Why this topic works on this day
+
+Format clearly for each day. Be specific and strategic.`);
+
+  el.innerHTML = `<div style="background:rgba(0,212,255,0.04);border:1px solid var(--border);border-left:3px solid var(--arc);border-radius:4px;padding:12px;font-size:0.76rem;line-height:1.8;">${escHtml(reply)}</div>`;
+}
+
+function saveThreadsToken() {
+  const token = document.getElementById('threadsToken').value.trim();
+  if(!token) return;
+  localStorage.setItem('jarvis_threads_token', token);
+  document.getElementById('tokenStatus').innerHTML = `<div class="alert success">✅ Token saved locally. Auto-post ready when connected to backend.</div>`;
+  document.getElementById('threadsToken').value = '';
+}
+
+// ── Init ───────────────────────────────────
+loadBizStats();
+</script>
+</body>
+</html>
